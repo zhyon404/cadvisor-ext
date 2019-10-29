@@ -74,14 +74,9 @@ var urlBasePrefix = flag.String("url_base_prefix", "", "prefix path that will be
 var rawCgroupPrefixWhiteList = flag.String("raw_cgroup_prefix_whitelist", "", "A comma-separated list of cgroup path prefix that needs to be collected even when -docker_only is specified")
 
 var (
-	// Metrics to be ignored.
-	// Tcp metrics are ignored by default.
-	ignoreMetrics metricSetValue = metricSetValue{container.MetricSet{
-		container.NetworkTcpUsageMetrics:  struct{}{},
-		container.NetworkUdpUsageMetrics:  struct{}{},
-		container.ProcessSchedulerMetrics: struct{}{},
-		container.ProcessMetrics:          struct{}{},
-	}}
+	// Metrics to be enabled.
+	// All metrics are ignored by default.
+	enableMetrics metricSetValue = metricSetValue{container.MetricSet{}}
 
 	// List of metrics that can be ignored.
 	ignoreWhitelist = container.MetricSet{
@@ -93,6 +88,7 @@ var (
 		container.PerCpuUsageMetrics:      struct{}{},
 		container.ProcessSchedulerMetrics: struct{}{},
 		container.ProcessMetrics:          struct{}{},
+		container.NetworkTcpDetailMetrics: struct{}{},
 	}
 )
 
@@ -124,7 +120,7 @@ func (ml *metricSetValue) Set(value string) error {
 }
 
 func init() {
-	flag.Var(&ignoreMetrics, "disable_metrics", "comma-separated list of `metrics` to be disabled. Options are 'disk', 'diskIO', 'network', 'tcp', 'udp', 'percpu', 'sched', 'process'.")
+	flag.Var(&enableMetrics, "enable_metrics", "comma-separated list of `metrics` to be enabled. Options are 'disk', 'diskIO', 'network', 'tcp', 'udp', 'percpu', 'sched', 'process', 'tcpDetail'. Default is null")
 
 	// Default logging verbosity to V(2)
 	flag.Set("v", "2")
@@ -140,7 +136,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	includedMetrics := toIncludedMetrics(ignoreMetrics.MetricSet)
+	includedMetrics := toIncludedMetrics(enableMetrics.MetricSet)
 
 	setMaxProcs()
 
@@ -257,7 +253,7 @@ func createCollectorHttpClient(collectorCert, collectorKey string) http.Client {
 	return http.Client{Transport: transport}
 }
 
-func toIncludedMetrics(ignoreMetrics container.MetricSet) container.MetricSet {
+func toIncludedMetrics(enableMetrics container.MetricSet) container.MetricSet {
 	set := container.MetricSet{}
 	allMetrics := []container.MetricKind{
 		container.CpuUsageMetrics,
@@ -273,9 +269,10 @@ func toIncludedMetrics(ignoreMetrics container.MetricSet) container.MetricSet {
 		container.AcceleratorUsageMetrics,
 		container.AppMetrics,
 		container.ProcessMetrics,
+		container.NetworkTcpDetailMetrics,
 	}
 	for _, metric := range allMetrics {
-		if !ignoreMetrics.Has(metric) {
+		if enableMetrics.Has(metric) {
 			set[metric] = struct{}{}
 		}
 	}

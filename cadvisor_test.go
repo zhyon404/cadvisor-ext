@@ -23,15 +23,15 @@ import (
 )
 
 func TestTcpMetricsAreDisabledByDefault(t *testing.T) {
-	assert.True(t, ignoreMetrics.Has(container.NetworkTcpUsageMetrics))
+	assert.True(t, enableMetrics.Has(container.NetworkTcpUsageMetrics))
 	flag.Parse()
-	assert.True(t, ignoreMetrics.Has(container.NetworkTcpUsageMetrics))
+	assert.True(t, enableMetrics.Has(container.NetworkTcpUsageMetrics))
 }
 
 func TestUdpMetricsAreDisabledByDefault(t *testing.T) {
-	assert.True(t, ignoreMetrics.Has(container.NetworkUdpUsageMetrics))
+	assert.True(t, enableMetrics.Has(container.NetworkUdpUsageMetrics))
 	flag.Parse()
-	assert.True(t, ignoreMetrics.Has(container.NetworkUdpUsageMetrics))
+	assert.True(t, enableMetrics.Has(container.NetworkUdpUsageMetrics))
 }
 
 func TestIgnoreMetrics(t *testing.T) {
@@ -45,11 +45,11 @@ func TestIgnoreMetrics(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		assert.NoError(t, ignoreMetrics.Set(test.value))
+		assert.NoError(t, enableMetrics.Set(test.value))
 
-		assert.Equal(t, len(test.expected), len(ignoreMetrics.MetricSet))
+		assert.Equal(t, len(test.expected), len(enableMetrics.MetricSet))
 		for _, expected := range test.expected {
-			assert.True(t, ignoreMetrics.Has(expected), "Missing %s", expected)
+			assert.True(t, enableMetrics.Has(expected), "Missing %s", expected)
 		}
 	}
 }

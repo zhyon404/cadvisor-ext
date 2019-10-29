@@ -19,10 +19,11 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/google/cadvisor/container"
-	info "github.com/google/cadvisor/info/v1"
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/klog"
+
+	"github.com/google/cadvisor/container"
+	info "github.com/google/cadvisor/info/v1"
 )
 
 // infoProvider will usually be manager.Manager, but can be swapped out for testing.
@@ -893,6 +894,27 @@ func NewPrometheusCollector(i infoProvider, f ContainerLabelsFunc, includedMetri
 				},
 			},
 		}...)
+		if includedMetrics.Has(container.NetworkTcpDetailMetrics) {
+			c.containerMetrics = append(c.containerMetrics, []containerMetric{
+				{
+					name:        "container_network_tcp_detail_total",
+					help:        "tcp connection detail for container",
+					valueType:   prometheus.GaugeValue,
+					extraLabels: []string{"remote_address"},
+					getValues: func(s *info.ContainerStats) metricValues {
+						res := metricValues{}
+						for k, v := range s.Network.TcpDetail.RemoteAddress {
+							res = append(res, metricValue{
+								value:     float64(v),
+								labels:    []string{k},
+								timestamp: s.Timestamp,
+							})
+						}
+						return res
+					},
+				},
+			}...)
+		}
 		c.containerMetrics = append(c.containerMetrics, []containerMetric{
 			{
 				name:        "container_network_tcp6_usage_total",

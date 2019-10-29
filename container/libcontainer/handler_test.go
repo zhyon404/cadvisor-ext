@@ -18,9 +18,10 @@ import (
 	"os"
 	"testing"
 
-	info "github.com/google/cadvisor/info/v1"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/system"
+
+	info "github.com/google/cadvisor/info/v1"
 )
 
 func TestScanInterfaceStats(t *testing.T) {
@@ -174,4 +175,12 @@ func TestSetProcessesStats(t *testing.T) {
 		t.Fatalf("expected max threads: %d == %d", ret.Processes.ThreadsMax, expected.Processes.ThreadsMax)
 	}
 
+}
+
+func Test_hex2ipv4(t *testing.T) {
+	res, err := hex2ipv4("16CA11AC", "D4C4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(res)
 }

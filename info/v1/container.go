@@ -409,13 +409,18 @@ type NetworkStats struct {
 	InterfaceStats `json:",inline"`
 	Interfaces     []InterfaceStats `json:"interfaces,omitempty"`
 	// TCP connection stats (Established, Listen...)
-	Tcp TcpStat `json:"tcp"`
+	Tcp       TcpStat   `json:"tcp"`
+	TcpDetail TcpDetail `json:"tcp_detail"`
 	// TCP6 connection stats (Established, Listen...)
 	Tcp6 TcpStat `json:"tcp6"`
 	// UDP connection stats
 	Udp UdpStat `json:"udp"`
 	// UDP6 connection stats
 	Udp6 UdpStat `json:"udp6"`
+}
+
+type TcpDetail struct {
+	RemoteAddress map[string]uint64
 }
 
 type TcpStat struct {

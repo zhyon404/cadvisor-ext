@@ -16,6 +16,7 @@ package libcontainer
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -25,11 +26,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/cadvisor/container"
-	info "github.com/google/cadvisor/info/v1"
 	"golang.org/x/sys/unix"
 
-	"bytes"
+	"github.com/google/cadvisor/container"
+	info "github.com/google/cadvisor/info/v1"
 
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
@@ -99,9 +99,17 @@ func (h *Handler) GetStats() (*info.ContainerStats, error) {
 
 		t6, err := tcpStatsFromProc(h.rootFs, h.pid, "net/tcp6")
 		if err != nil {
-			klog.V(4).Infof("Unable to get tcp6 stats from pid %d: %v", h.pid, err)
+			klog.V(4).Infof("Unable to get tcp6 details from pid %d: %v", h.pid, err)
 		} else {
 			stats.Network.Tcp6 = t6
+		}
+	}
+	if h.includedMetrics.Has(container.NetworkTcpDetailMetrics) {
+		t, err := tcpDetailsFromProc(h.rootFs, h.pid, "net/tcp")
+		if err != nil {
+			klog.V(4).Infof("Unable to get tcp details from pid %d: %v", h.pid, err)
+		} else {
+			stats.Network.TcpDetail = t
 		}
 	}
 	if h.includedMetrics.Has(container.NetworkUdpUsageMetrics) {
@@ -332,6 +340,77 @@ func tcpStatsFromProc(rootFs string, pid int, file string) (info.TcpStat, error)
 	}
 
 	return tcpStats, nil
+}
+
+func tcpDetailsFromProc(rootFs string, pid int, file string) (info.TcpDetail, error) {
+	tcpStatsFile := path.Join(rootFs, "proc", strconv.Itoa(pid), file)
+
+	tcpStats, err := scanTcpDetails(tcpStatsFile)
+	if err != nil {
+		return tcpStats, fmt.Errorf("couldn't read tcp stats: %v", err)
+	}
+
+	return tcpStats, nil
+}
+
+func scanTcpDetails(tcpStatsFile string) (info.TcpDetail, error) {
+
+	var detail = info.TcpDetail{
+		RemoteAddress: map[string]uint64{},
+	}
+
+	data, err := ioutil.ReadFile(tcpStatsFile)
+	if err != nil {
+		return detail, fmt.Errorf("failure opening %s: %v", tcpStatsFile, err)
+	}
+
+	reader := strings.NewReader(string(data))
+	scanner := bufio.NewScanner(reader)
+
+	scanner.Split(bufio.ScanLines)
+
+	// Discard header line
+	if b := scanner.Scan(); !b {
+		return detail, scanner.Err()
+	}
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		state := strings.Fields(line)
+		// TCP state is the 4th field.
+		// Format: sl local_address rem_address st tx_queue rx_queue tr tm->when retrnsmt  uid timeout inode
+		fs := strings.Split(state[2], ":")
+		if len(fs) != 2 || len(fs[0]) != 8 {
+			return detail, fmt.Errorf("invalid TCP detail line: %v", line)
+		}
+		add, err := hex2ipv4(fs[0], fs[1])
+		if err != nil {
+			return detail, fmt.Errorf("invalid TCP detail line: %v", line)
+		}
+		_, ok := detail.RemoteAddress[add]
+		if !ok {
+			detail.RemoteAddress[add] = 0
+		}
+		detail.RemoteAddress[add]++
+	}
+	return detail, nil
+}
+
+func hex2ipv4(ip, port string) (string, error) {
+	p, err := strconv.ParseInt(port, 16, 64)
+	if err != nil {
+		return "", err
+	}
+	s := make([]string, 0, 4)
+	for i := 0; i < 8; i += 2 {
+		p, err := strconv.ParseInt(ip[i:i+2], 16, 16)
+		if err != nil {
+			return "", err
+		}
+		s = append(s, strconv.Itoa(int(p)))
+	}
+	return strings.Join(s, ".") + ":" + strconv.Itoa(int(p)), nil
 }
 
 func scanTcpStats(tcpStatsFile string) (info.TcpStat, error) {

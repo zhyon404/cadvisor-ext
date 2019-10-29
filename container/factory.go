@@ -56,6 +56,7 @@ const (
 	AcceleratorUsageMetrics MetricKind = "accelerator"
 	AppMetrics              MetricKind = "app"
 	ProcessMetrics          MetricKind = "process"
+	NetworkTcpDetailMetrics MetricKind = "tcpDetail"
 )
 
 func (mk MetricKind) String() string {
